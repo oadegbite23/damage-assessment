@@ -59,7 +59,8 @@ Data is **not redistributed here** (see `.gitignore` — `data/` is excluded fro
 ├── .gitignore
 ├── data/            # xBD data (gitignored — see Setup)
 ├── src/             # Core pipeline code
-│   ├── data_loading.py
+│   ├── build_paraquet.py
+    ├── data_loading.py
 │   ├── model.py
 │   ├── train.py
 │   └── evaluate.py
