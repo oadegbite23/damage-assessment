@@ -30,14 +30,13 @@ pip install -r requirements.txt
 ```
 
 ### Data
-This project uses a subset of the **xBD dataset**, scoped down for local storage/compute constraints.The full dataset (22,068 images, 30.3GB) is available via download following the required free registration from the offical source at xview2.org. Here I've used 3 of the 19 disaster events:
+This project uses a subset of the **xBD dataset**, scoped down due to local storage/compute constraints.The full dataset (22,068 images, 30.3GB) is available via download following the required free registration from the offical source at xview2.org. Here I've used 3 of the 19 disaster events:
     - **Huricane Michael** (wind/structural damage)
     - **Santa Rosa Wildfire** (fire damage)
     - **Mexico City Earthquake** (seismic damage)
 
 These three events provide three distinct damage mechanisms to increase generalization capabilities, using a fraction of the full dataset. 
-Data is **not redistributed here** (see `.gitignore` — `data/` is
-excluded from version control).
+Data is **not redistributed here** (see `.gitignore` — `data/` is excluded from version control).
 
 1. Registration at [xview2.org/dataset](https://xview2.org/dataset) —
    already done.
@@ -60,7 +59,8 @@ excluded from version control).
 ├── .gitignore
 ├── data/            # xBD data (gitignored — see Setup)
 ├── src/             # Core pipeline code
-│   ├── data_loading.py
+│   ├── build_paraquet.py
+    ├── data_loading.py
 │   ├── model.py
 │   ├── train.py
 │   └── evaluate.py

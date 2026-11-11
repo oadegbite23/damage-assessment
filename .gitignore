@@ -1,0 +1,4 @@
+venv11/
+.pytest_cache/
+data/
+.vscode/
