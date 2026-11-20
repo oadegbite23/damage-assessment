@@ -49,6 +49,45 @@ Data is **not redistributed here** (see `.gitignore` — `data/` is excluded fro
    `src/data_loading.py` for the extraction approach.
 4. Place the extracted data under `data/` following the structure
    documented in `src/data_loading.py`.
+5. Run the one-time preprocessing step to convert the raw files into
+   parquet (see `src/build_parquet.py`), once per split folder:
+   ```bash
+   python src/build_parquet.py --data-dir data --split train
+   python src/build_parquet.py --data-dir data --split test
+   python src/build_parquet.py --data-dir data --split hold
+   ```
+   This rasterizes label polygons into masks once (instead of on
+   every training step) and writes one parquet file per split under
+   `data/parquet/`, containing every event in that split. The raw
+   extracted PNGs/JSONs can be deleted afterward to reclaim disk space.
+
+6. Train from parquet using the challenge's **official partitions**
+   (no re-splitting, so results are comparable with other teams'):
+   ```python
+   from data_loading import official_splits_parquet
+
+   train_ds, hold_ds, test_ds = official_splits_parquet("data/parquet")
+   ```
+   Each dataset comes from its own file (`train.parquet`, `hold.parquet`,
+   `test.parquet`). Fit on `train`, tune and pick checkpoints on `hold`,
+   and report the final number on `test` only. Don't point
+   `XBDParquetDataset` at the whole `data/parquet` directory for
+   training; that would mix all three partitions.
+
+   For quick development runs you can restrict every partition to a few
+   events with `official_splits_parquet("data/parquet", events=TARGET_EVENTS)`,
+   but scores on a subset are not comparable to the full official test
+   set. Use `collections.Counter(ds.disasters)` to see which events a
+   dataset contains.
+
+**Note on the download itself:** the Aspera packages from xview2.org
+are typically bundled as full train/test/hold archives rather than
+split per disaster event. Check the download page
+(xview2.org/download-links) for whether individual event-level
+downloads are offered — if not, you'll need enough temporary disk
+space to download the full archive before deleting everything except
+the 3 target events. Worth confirming available space for that
+temporary step, separate from the final (much smaller) subset size.
 
    ## Project Structure
 
@@ -59,14 +98,16 @@ Data is **not redistributed here** (see `.gitignore` — `data/` is excluded fro
 ├── .gitignore
 ├── data/            # xBD data (gitignored — see Setup)
 ├── src/             # Core pipeline code
-│   ├── build_paraquet.py
-    ├── data_loading.py
+│   ├── build_parquet.py
+│   ├── data_loading.py
 │   ├── model.py
 │   ├── train.py
 │   └── evaluate.py
+├── tests/           # pytest (run `pytest` from the repo root)
 ├── notebooks/        # Exploratory analysis, kept separate from src/
 └── results/          # Metrics, figures (gitignored except summaries)
 ```
+
 
 ## Results
 
