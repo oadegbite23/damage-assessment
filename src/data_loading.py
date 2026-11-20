@@ -27,6 +27,13 @@ data format):
       hold/
         images/
         labels/
+OR 
+Expected directory structure under `data/` (following build_parquet.py):
+    data/
+      parquet/
+        train.parquet/
+        hold.parquet/
+        test.parquet/
 
 Each pre/post image pair shares an <id>. Label JSON files follow the
 xBD schema: a "features" dict with "xy" (pixel-space polygons, what we
