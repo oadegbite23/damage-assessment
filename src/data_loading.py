@@ -28,16 +28,6 @@ data format):
         images/
         labels/
 
-OR 
-
-Expected directory structure under `data/` (following build_parquet.py):
-
-    data/
-      parquet/
-        train.parquet/
-        hold.parquet/
-        test.parquet/
-
 Each pre/post image pair shares an <id>. Label JSON files follow the
 xBD schema: a "features" dict with "xy" (pixel-space polygons, what we
 rasterize against) and "lng_lat" (geo-space, unused here) keys, plus a
@@ -46,8 +36,6 @@ feature's "properties" includes "feature_type" ("building") and, in
 post-disaster labels only, "subtype" — the damage label:
     no-damage | minor-damage | major-damage | destroyed | un-classified
 """
-
-
 
 import json
 import random
@@ -217,7 +205,7 @@ OFFICIAL_SPLITS = ("train", "hold", "test")
 
 def official_splits(
     data_dir: Path,
-    events: list[str] | None = None,
+    train_events: list[str] | None = None,
     transform=None,
 ) -> tuple[XBDDataset, XBDDataset, XBDDataset]:
     """Raw-file datasets for the challenge's own partitions, returned as
@@ -226,16 +214,18 @@ def official_splits(
     Nothing is re-split here. Use train to fit, hold to tune and pick
     checkpoints, and test only for the final reported number.
 
-    events=None (default) keeps every event, which is what you need for
-    results comparable to the challenge leaderboard. Passing a list
-    restricts ALL THREE partitions to those events: fine for quick
-    development runs, but scores on a subset are not comparable to
-    scores on the full official test set.
+    train_events restricts ONLY the training partition (None = all
+    events). hold and test always keep every event, so models trained
+    on different subsets are all scored on the same data and stay
+    roughly comparable with published results. For a per-event score,
+    break the metric down by event (see evaluate.py) rather than
+    filtering the evaluation sets.
     """
     data_dir = Path(data_dir)
-    return tuple(
-        XBDDataset(data_dir / name, events=events, transform=transform)
-        for name in OFFICIAL_SPLITS
+    return (
+        XBDDataset(data_dir / "train", events=train_events, transform=transform),
+        XBDDataset(data_dir / "hold", transform=transform),
+        XBDDataset(data_dir / "test", transform=transform),
     )
 
 
@@ -487,7 +477,7 @@ class RowGroupShuffleSampler(Sampler):
 
 def official_splits_parquet(
     parquet_dir,
-    events: list[str] | None = None,
+    train_events: list[str] | None = None,
     transform=None,
     cache_row_groups: int = 8,
 ) -> tuple[XBDParquetDataset, XBDParquetDataset, XBDParquetDataset]:
@@ -500,11 +490,12 @@ def official_splits_parquet(
     XBDParquetDataset at the whole directory for training: that would
     mix all three partitions together.
 
-    events=None (default) keeps every event, which is what you need for
-    results comparable to the challenge leaderboard. Passing a list
-    restricts ALL THREE partitions to those events: fine for quick
-    development runs, but scores on a subset are not comparable to
-    scores on the full official test set.
+    train_events restricts ONLY the training partition (None = all
+    events). hold and test always keep every event, so models trained
+    on different subsets are all scored on the same data and stay
+    roughly comparable with published results. For a per-event score,
+    break the metric down by event (see evaluate.py) rather than
+    filtering the evaluation sets.
     """
     parquet_dir = Path(parquet_dir)
     paths = {name: parquet_dir / f"{name}.parquet" for name in OFFICIAL_SPLITS}
@@ -514,5 +505,9 @@ def official_splits_parquet(
             f"Missing {missing} in {parquet_dir}. Run build_parquet.py once per "
             f"partition ({', '.join(OFFICIAL_SPLITS)})."
         )
-    kwargs = dict(events=events, transform=transform, cache_row_groups=cache_row_groups)
-    return tuple(XBDParquetDataset(paths[name], **kwargs) for name in OFFICIAL_SPLITS)
+    kwargs = dict(transform=transform, cache_row_groups=cache_row_groups)
+    return (
+        XBDParquetDataset(paths["train"], events=train_events, **kwargs),
+        XBDParquetDataset(paths["hold"], **kwargs),
+        XBDParquetDataset(paths["test"], **kwargs),
+    )
