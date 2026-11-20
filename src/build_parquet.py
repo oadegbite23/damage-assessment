@@ -25,7 +25,7 @@ from pathlib import Path
 import cv2
 import pandas as pd
 import pyarrow
-from data_loading import TARGET_EVENTS, parse_label_json, polygons_to_masks
+from data_loading import parse_label_json, polygons_to_masks
 import glob
 
 def build_parquet(data_dir: Path, split: str):

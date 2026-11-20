@@ -2,7 +2,7 @@
 Data loading utilities for the xBD dataset (xView2 Challenge).
 
 Works with either the full xBD dataset (19 events, ~30GB) or a subset
-such as the 3 events in TARGET_EVENTS (Hurricane Michael, Santa Rosa
+such as the 3 events (Hurricane Michael, Santa Rosa
 Wildfire, Mexico City Earthquake). For the full dataset, convert the
 raw files once with build_parquet.py and train from
 XBDParquetDataset — it reads lazily, so memory stays flat as the
@@ -68,8 +68,6 @@ DAMAGE_CLASSES = {
     "destroyed": 4,
     "un-classified": 0,
 }
-
-TARGET_EVENTS = ["hurricane-michael", "santa-rosa-wildfire", "mexico-city-earthquake"]
 
 
 @dataclass
@@ -147,8 +145,8 @@ class XBDDataset(Dataset):
         transform=None,
         exclude_events: list[str] | None = None,
     ):
-        """events=None means ALL events in the split; pass a list (e.g.
-        TARGET_EVENTS) to restrict. exclude_events drops events after
+        """events=None means ALL events in the split; pass a list
+        to restrict. exclude_events drops events after
         that. Matching is by substring of the filename."""
         self.split_dir = Path(split_dir)
         self.images_dir = self.split_dir / "images"
