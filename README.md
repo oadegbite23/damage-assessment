@@ -5,19 +5,20 @@
 This project uses deep learning to perform building localization and damage classification from satellite imagery using the publicly available xBD Dataset [https://xview2.org/dataset]. Provided with pre-disaster and post-disaster satellite images, the goal is to:
 1. **Localize** buildings through building footprints as a binary mask.
 2. **Classify damage severity** per building using a 4-level ordinal scale defined as: 
-    - 0: no damage (Undisturbed. No sign of water, structural damage, shingle damage, or burn marks)
-    - 1: minor damage (Building partially burnt, water surrounding the structure, volcanic flow nearby, roof elements missing, or visible cracks)
-    - 2: major damage (Partial wall or roof collapse, encroaching volcanic flow, or the structure is surrounded by water or mud)
-    - 3: destroyed (Structure is scorched, completely collapsed, partially or completely covered with water or mud, or no longer present); 
+    - 0: Background 
+    - 1: No damage (Undisturbed. No sign of water, structural damage, shingle damage, or burn marks)
+    - 2: minor damage (Building partially burnt, water surrounding the structure, volcanic flow nearby, roof elements missing, or visible cracks)
+    - 3: major damage (Partial wall or roof collapse, encroaching volcanic flow, or the structure is surrounded by water or mud)
+    - 4: destroyed (Structure is scorched, completely collapsed, partially or completely covered with water or mud, or no longer present); 
     by comparing the pre- and post-disaster imagery.
 
 **Status:** 🚧 In progress. See [Results](#results) for what's done so far.
 
 ## Motivation
 
-With the onset of a super El Niño event, I was inspired to expand my maching learning expertise using data  that is both outside of my healthcare domain and also particulary relevant today as the affects of climate change increase in severity. This project applies a computer vision/deep learning pipeline (Siamese U-Net-style segmentation and classification) to the xBD satellite image dataset, building on my prior experience with image segmentation, feature engineering, and ensemble modeling from medical image research, while developing my deep learning architecture experience (CNNs, U-Net variants). 
+With the onset of a super El Niño event, I was inspired to expand my machine learning expertise using data  that is both outside of my healthcare domain and also particularly relevant today as the effects of climate change increase in severity. This project applies a computer vision/deep learning pipeline (Siamese U-Net-style segmentation and classification) to the xBD satellite image dataset, building on my prior experience with image segmentation, feature engineering, and ensemble modeling from medical image research, while developing my deep learning architecture experience (CNNs, U-Net variants). 
 
-Similar to my background with medical imaging, traditional assesments of satellite imagery is typically performed manually by an experienced professional, a labor-intensive process. This project aims to show that leveraging computer vision in this way could reduce labor time to hours.
+Similar to my background with medical imaging, traditional assessments of satellite imagery is typically performed manually by an experienced professional, a labor-intensive process. This project aims to show that leveraging computer vision in this way could reduce labor time to hours.
 
 ## Setup
 
@@ -30,12 +31,15 @@ pip install -r requirements.txt
 ```
 
 ### Data
-This project uses a subset of the **xBD dataset**, scoped down due to local storage/compute constraints.The full dataset (22,068 images, 30.3GB) is available via download following the required free registration from the offical source at xview2.org. Here I've used 3 of the 19 disaster events:
-    - **Huricane Michael** (wind/structural damage)
-    - **Santa Rosa Wildfire** (fire damage)
-    - **Mexico City Earthquake** (seismic damage)
+This project uses the full **xBD dataset** (22,068 images, 19 disaster events, 30.3GB), available via download following the required free registration from the official source at xview2.org. The challenge's own `train`, `hold` and `test` partitions are used as-is, with no re-splitting, so results are comparable with other teams'.
 
-These three events provide three distinct damage mechanisms to increase generalization capabilities, using a fraction of the full dataset. 
+The experiment is to compare models trained on different subsets of the **training** events, for example a single disaster type versus all of them. Three events provide distinct damage mechanisms:
+   - **Hurricane Michael** (wind/structural damage)
+   - **Santa Rosa Wildfire** (fire damage)
+   - **Mexico City Earthquake** (seismic damage)
+
+Every model is evaluated on the same full `hold` and `test` partitions, with scores broken down by event to show how well a model trained on some disaster types generalizes to the others. Only the training partition is ever filtered.
+
 Data is **not redistributed here** (see `.gitignore` — `data/` is excluded from version control).
 
 1. Registration at [xview2.org/dataset](https://xview2.org/dataset) —
@@ -43,10 +47,9 @@ Data is **not redistributed here** (see `.gitignore` — `data/` is excluded fro
 2. Download the Challenge training/test/holdout sets from
    [xview2.org/download-links](https://xview2.org/download-links)
    (via Aspera Connect).
-3. From the downloaded archives, extract only the files matching the
-   3 target event names (`hurricane-michael`, `santa-rosa-wildfire`,
-   `mexico-city-earthquake`) rather than unpacking everything — see
-   `src/data_loading.py` for the extraction approach.
+3. Extract the archives. Keep every event in all three partitions,
+   since `hold` and `test` must stay complete; which events a model
+   trains on is chosen later, when the data is loaded.
 4. Place the extracted data under `data/` following the structure
    documented in `src/data_loading.py`.
 5. Run the one-time preprocessing step to convert the raw files into
@@ -74,22 +77,33 @@ Data is **not redistributed here** (see `.gitignore` — `data/` is excluded fro
    `XBDParquetDataset` at the whole `data/parquet` directory for
    training; that would mix all three partitions.
 
-   For quick development runs you can restrict every partition to a few
-   events with `official_splits_parquet("data/parquet", events=TARGET_EVENTS)`,
-   but scores on a subset are not comparable to the full official test
-   set. Use `collections.Counter(ds.disasters)` to see which events a
+   To train on a subset of events, restrict **only** the training
+   partition; `hold` and `test` always keep every event:
+   ```python
+   from data_loading import TARGET_EVENTS
+
+   train_ds, hold_ds, test_ds = official_splits_parquet(
+       "data/parquet", train_events=["hurricane-michael"]   # or TARGET_EVENTS
+   )
+   ```
+   Use `collections.Counter(ds.disasters)` to see which events a
    dataset contains.
 
-**Note on the download itself:** the Aspera packages from xview2.org
-are typically bundled as full train/test/hold archives rather than
-split per disaster event. Check the download page
-(xview2.org/download-links) for whether individual event-level
-downloads are offered — if not, you'll need enough temporary disk
-space to download the full archive before deleting everything except
-the 3 target events. Worth confirming available space for that
-temporary step, separate from the final (much smaller) subset size.
+7. Score each model with `src/evaluate.py`: the xView2 metric
+   (0.3 × localization F1 + 0.7 × damage F1) overall and per event, so
+   models trained on different subsets can be compared on identical
+   evaluation data. Keep the architecture, hyperparameters and training
+   budget the same across subsets, and note each subset's size, since a
+   model trained on a bigger event can win just by seeing more images.
 
-   ## Project Structure
+**Note on disk space:** the Aspera packages from xview2.org are
+typically bundled as full train/test/hold archives, and the parquet
+files are roughly as large as the raw images, so plan for the full
+dataset. Convert one partition at a time and delete its raw files
+afterward if space is tight.
+
+
+## Project Structure
 
 ```
 .
