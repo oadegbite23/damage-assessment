@@ -64,12 +64,23 @@ Data is **not redistributed here** (see `.gitignore` — `data/` is excluded fro
    `data/parquet/`, containing every event in that split. The raw
    extracted PNGs/JSONs can be deleted afterward to reclaim disk space.
 
-6. Train from parquet using the challenge's **official partitions**
+6. Rewrite the parquet files with small row groups. `build_parquet.py`
+   writes each split as a single row group (several GB for `train`),
+   and parquet can only be read a whole row group at a time, so
+   training straight from those files would try to load an entire
+   split into memory:
+   ```bash
+   python src/repartition_parquet.py --src data/parquet --dst data/parquet_rg16
+   ```
+   The images are copied byte-for-byte; delete `data/parquet` once the
+   new files check out.
+
+7. Train from parquet using the challenge's **official partitions**
    (no re-splitting, so results are comparable with other teams'):
    ```python
    from data_loading import official_splits_parquet
 
-   train_ds, hold_ds, test_ds = official_splits_parquet("data/parquet")
+   train_ds, hold_ds, test_ds = official_splits_parquet("data/parquet_rg16")
    ```
    Each dataset comes from its own file (`train.parquet`, `hold.parquet`,
    `test.parquet`). Fit on `train`, tune and pick checkpoints on `hold`,
@@ -83,13 +94,13 @@ Data is **not redistributed here** (see `.gitignore` — `data/` is excluded fro
    from data_loading import TARGET_EVENTS
 
    train_ds, hold_ds, test_ds = official_splits_parquet(
-       "data/parquet", train_events=["hurricane-michael"]   # or TARGET_EVENTS
+       "data/parquet_rg16", train_events=["hurricane-michael"]   # or TARGET_EVENTS
    )
    ```
    Use `collections.Counter(ds.disasters)` to see which events a
    dataset contains.
 
-7. Score each model with `src/evaluate.py`: the xView2 metric
+8. Score each model with `src/evaluate.py`: the xView2 metric
    (0.3 × localization F1 + 0.7 × damage F1) overall and per event, so
    models trained on different subsets can be compared on identical
    evaluation data. Keep the architecture, hyperparameters and training
@@ -102,7 +113,6 @@ files are roughly as large as the raw images, so plan for the full
 dataset. Convert one partition at a time and delete its raw files
 afterward if space is tight.
 
-
 ## Project Structure
 
 ```
@@ -113,6 +123,7 @@ afterward if space is tight.
 ├── data/            # xBD data (gitignored — see Setup)
 ├── src/             # Core pipeline code
 │   ├── build_parquet.py
+│   ├── repartition_parquet.py
 │   ├── data_loading.py
 │   ├── model.py
 │   ├── train.py
