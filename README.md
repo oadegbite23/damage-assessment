@@ -16,7 +16,7 @@ This project uses deep learning to perform building localization and damage clas
 
 ## Motivation
 
-With the onset of a super El Niño event, I was inspired to expand my machine learning expertise using data  that is both outside of my healthcare domain and also particularly relevant today as the effects of climate change increase in severity. This project applies a computer vision/deep learning pipeline (Siamese U-Net-style segmentation and classification) to the xBD satellite image dataset, building on my prior experience with image segmentation, feature engineering, and ensemble modeling from medical image research, while developing my deep learning architecture experience (CNNs, U-Net variants). 
+With the onset of a super El Niño event, I was inspired to expand my machine learning expertise using data that is both outside of my healthcare domain and also particularly relevant today as the effects of climate change increase in severity. This project applies a computer vision/deep learning pipeline (Siamese U-Net-style segmentation and classification) to the xBD satellite image dataset, building on my prior experience with image segmentation, feature engineering, and ensemble modeling from medical image research, while developing my deep learning architecture experience (CNNs, U-Net variants). 
 
 Similar to my background with medical imaging, traditional assessments of satellite imagery is typically performed manually by an experienced professional, a labor-intensive process. This project aims to show that leveraging computer vision in this way could reduce labor time to hours.
 
@@ -91,10 +91,8 @@ Data is **not redistributed here** (see `.gitignore` — `data/` is excluded fro
    To train on a subset of events, restrict **only** the training
    partition; `hold` and `test` always keep every event:
    ```python
-   from data_loading import TARGET_EVENTS
-
    train_ds, hold_ds, test_ds = official_splits_parquet(
-       "data/parquet_rg16", train_events=["hurricane-michael"]   # or TARGET_EVENTS
+       "data/parquet_rg16", train_events=["hurricane-michael", "santa-rosa-wildfire"]
    )
    ```
    Use `collections.Counter(ds.disasters)` to see which events a
@@ -113,6 +111,36 @@ files are roughly as large as the raw images, so plan for the full
 dataset. Convert one partition at a time and delete its raw files
 afterward if space is tight.
 
+
+## Training
+
+`src/train.py` trains the Siamese U-Net on the official `train` partition
+(all events, or only the ones you pass with `--train-events`), picks the
+best epoch on `hold`, and scores `test` once at the end, overall and per
+event. Check that everything runs first with a tiny run:
+
+```bash
+python src/train.py --parquet-dir data/parquet_rg16 --out-dir runs --smoke
+```
+
+On Colab, clone the repo, mount Google Drive, and run one command per
+experiment. `--local-dir` copies the parquet files from Drive onto the
+machine's own disk first (reading from the Drive mount is slow), and
+`--resume` continues from the last saved epoch if the session was cut off:
+
+```bash
+python src/train.py \
+    --parquet-dir /content/drive/MyDrive/xview2/parquet_rg16 \
+    --local-dir /content/xbd \
+    --out-dir /content/drive/MyDrive/xview2/runs \
+    --train-events hurricane-michael --resume
+```
+
+Each run writes a folder under `--out-dir` with checkpoints, per-epoch
+history, per-event hold and test scores, and its configuration. To compare
+training subsets, change only `--train-events` and keep every other setting
+(encoder, learning rates, epochs, seed) identical.
+
 ## Project Structure
 
 ```
@@ -125,6 +153,7 @@ afterward if space is tight.
 │   ├── build_parquet.py
 │   ├── repartition_parquet.py
 │   ├── data_loading.py
+│   ├── train_utils.py
 │   ├── model.py
 │   ├── train.py
 │   └── evaluate.py
